@@ -1,6 +1,7 @@
 import streamlit as st
 import plotly.graph_objects as go
 import pandas as pd
+import numpy as np
 from database import get_db
 from models import Barn
 from utils import get_risk_color
@@ -46,11 +47,11 @@ def render_3d_farm():
         
         # Add ground plane
         ground_size = 100
-        xx, yy = pd.np.meshgrid(
-            pd.np.linspace(-10, ground_size, 10),
-            pd.np.linspace(-10, ground_size, 10)
+        xx, yy = np.meshgrid(
+            np.linspace(-10, ground_size, 10),
+            np.linspace(-10, ground_size, 10)
         )
-        zz = pd.np.zeros_like(xx) - 5
+        zz = np.zeros_like(xx) - 5
         
         fig.add_trace(go.Surface(
             x=xx, y=yy, z=zz,
