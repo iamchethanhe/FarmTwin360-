@@ -47,6 +47,51 @@ def get_db() -> Session:
     finally:
         pass
 
+def get_user_assigned_farms(user_id: int, db: Session):
+    """Get list of farm IDs assigned to a user"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        return []
+    return [farm.id for farm in user.assigned_farms]
+
+def can_access_all_farms(role: str) -> bool:
+    """Check if user role can access all farms (admin and auditor)"""
+    return role in ["admin", "auditor"]
+
+def get_accessible_farm_ids(user_id: int, user_role: str, db: Session):
+    """Get list of farm IDs accessible to the user based on their role"""
+    if can_access_all_farms(user_role):
+        # Admin and auditor can see all farms
+        farms = db.query(Farm.id).all()
+        return [farm.id for farm in farms]
+    else:
+        # Other users can only see assigned farms
+        return get_user_assigned_farms(user_id, db)
+
+def assign_user_to_farm(user_id: int, farm_id: int, db: Session):
+    """Assign a user to a farm"""
+    user = db.query(User).filter(User.id == user_id).first()
+    farm = db.query(Farm).filter(Farm.id == farm_id).first()
+    
+    if user and farm:
+        if farm not in user.assigned_farms:
+            user.assigned_farms.append(farm)
+            db.commit()
+            return True
+    return False
+
+def unassign_user_from_farm(user_id: int, farm_id: int, db: Session):
+    """Remove a user's assignment from a farm"""
+    user = db.query(User).filter(User.id == user_id).first()
+    farm = db.query(Farm).filter(Farm.id == farm_id).first()
+    
+    if user and farm:
+        if farm in user.assigned_farms:
+            user.assigned_farms.remove(farm)
+            db.commit()
+            return True
+    return False
+
 def create_demo_data():
     """Create demo users and sample data"""
     db = get_db()
@@ -76,30 +121,61 @@ def create_demo_data():
             )
             db.add(user)
         
-        # Create demo farm
-        farm = Farm(
+        # Create demo farms
+        farm1 = Farm(
             name="Green Valley Farm",
             location="California, USA",
             description="Premium livestock farm with modern facilities"
         )
-        db.add(farm)
+        db.add(farm1)
+        
+        farm2 = Farm(
+            name="Sunny Hills Ranch",
+            location="Texas, USA",
+            description="Large-scale cattle and poultry operation"
+        )
+        db.add(farm2)
+        
         db.commit()
-        db.refresh(farm)
+        db.refresh(farm1)
+        db.refresh(farm2)
         
-        if farm.id is None:
-            raise ValueError("Failed to create farm")
+        if farm1.id is None or farm2.id is None:
+            raise ValueError("Failed to create farms")
         
-        # Create demo barns
-        barn_configs = [
-            {"name": "Barn A", "capacity": 100, "x": 0, "y": 0, "z": 0},
-            {"name": "Barn B", "capacity": 150, "x": 50, "y": 0, "z": 0},
-            {"name": "Barn C", "capacity": 120, "x": 0, "y": 50, "z": 0},
-            {"name": "Barn D", "capacity": 80, "x": 50, "y": 50, "z": 0},
+        # Assign users to farms (worker, visitor, vet to farm1; manager to both)
+        manager = db.query(User).filter(User.role == "manager").first()
+        worker = db.query(User).filter(User.role == "worker").first()
+        visitor = db.query(User).filter(User.role == "visitor").first()
+        vet = db.query(User).filter(User.role == "vet").first()
+        
+        if manager:
+            manager.assigned_farms.extend([farm1, farm2])
+        if worker:
+            worker.assigned_farms.append(farm1)
+        if visitor:
+            visitor.assigned_farms.append(farm1)
+        if vet:
+            vet.assigned_farms.append(farm1)
+        
+        db.commit()
+        
+        # Create demo barns for farm1
+        barn_configs_f1 = [
+            {"name": "Barn A", "capacity": 100, "x": 0, "y": 0, "z": 0, "farm_id": farm1.id},
+            {"name": "Barn B", "capacity": 150, "x": 50, "y": 0, "z": 0, "farm_id": farm1.id},
+            {"name": "Barn C", "capacity": 120, "x": 0, "y": 50, "z": 0, "farm_id": farm1.id},
         ]
         
-        for config in barn_configs:
+        # Create demo barns for farm2
+        barn_configs_f2 = [
+            {"name": "Barn X", "capacity": 200, "x": 0, "y": 0, "z": 0, "farm_id": farm2.id},
+            {"name": "Barn Y", "capacity": 180, "x": 50, "y": 0, "z": 0, "farm_id": farm2.id},
+        ]
+        
+        for config in barn_configs_f1 + barn_configs_f2:
             barn = Barn(
-                farm_id=farm.id,
+                farm_id=config["farm_id"],
                 name=config["name"],
                 capacity=config["capacity"],
                 position_x=config["x"],
@@ -112,11 +188,11 @@ def create_demo_data():
         db.commit()
         
         # Create sample checklists
-        worker = db.query(User).filter(User.role == "worker").first()
         if worker is None or worker.id is None:
             raise ValueError("Worker user not found")
             
-        barns = db.query(Barn).all()
+        # Get barns only from farm1 (since worker is assigned to farm1)
+        barns = db.query(Barn).filter(Barn.farm_id == farm1.id).all()
         
         for i in range(10):
             barn = random.choice(barns)
