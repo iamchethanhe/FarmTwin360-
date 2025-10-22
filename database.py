@@ -16,7 +16,17 @@ def get_engine():
         st.error("⚠️ Database connection not configured. Please set the DATABASE_URL environment variable in Replit Secrets.")
         st.stop()
     
-    return create_engine(database_url)
+    return create_engine(
+        database_url,
+        pool_pre_ping=True,
+        pool_recycle=300,
+        pool_size=5,
+        max_overflow=10,
+        connect_args={
+            "sslmode": "require",
+            "connect_timeout": 10,
+        }
+    )
 
 def get_session_factory():
     """Get session factory"""
@@ -74,6 +84,10 @@ def create_demo_data():
         )
         db.add(farm)
         db.commit()
+        db.refresh(farm)
+        
+        if farm.id is None:
+            raise ValueError("Failed to create farm")
         
         # Create demo barns
         barn_configs = [
@@ -99,6 +113,9 @@ def create_demo_data():
         
         # Create sample checklists
         worker = db.query(User).filter(User.role == "worker").first()
+        if worker is None or worker.id is None:
+            raise ValueError("Worker user not found")
+            
         barns = db.query(Barn).all()
         
         for i in range(10):
