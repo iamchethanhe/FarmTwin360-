@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from database import get_db
-from models import Barn, Checklist, Incident
+from database import get_db, get_accessible_farm_ids
+from models import Barn, Checklist, Incident, Farm
 from utils import save_uploaded_file, create_alert
 from translations import get_text
 from ai_engine import risk_predictor
@@ -32,7 +32,17 @@ def render_checklist_form():
     
     db = get_db()
     try:
-        barns = db.query(Barn).all()
+        # Get user's accessible farms
+        user_id = st.session_state.get('user').id
+        user_role = st.session_state.get('role')
+        accessible_farm_ids = get_accessible_farm_ids(user_id, user_role, db)
+        
+        if not accessible_farm_ids:
+            st.warning("No farms assigned to you. Please contact admin.")
+            return
+        
+        # Filter barns by accessible farms
+        barns = db.query(Barn).filter(Barn.farm_id.in_(accessible_farm_ids)).all()
         
         if not barns:
             st.warning(get_text("no_barns_available"))
@@ -200,7 +210,17 @@ def render_incident_form():
     
     db = get_db()
     try:
-        barns = db.query(Barn).all()
+        # Get user's accessible farms
+        user_id = st.session_state.get('user').id
+        user_role = st.session_state.get('role')
+        accessible_farm_ids = get_accessible_farm_ids(user_id, user_role, db)
+        
+        if not accessible_farm_ids:
+            st.warning("No farms assigned to you. Please contact admin.")
+            return
+        
+        # Filter barns by accessible farms
+        barns = db.query(Barn).filter(Barn.farm_id.in_(accessible_farm_ids)).all()
         
         if not barns:
             st.warning(get_text("no_barns_available"))

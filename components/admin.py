@@ -57,23 +57,6 @@ def render_user_management():
                     ["admin", "manager", "worker", "visitor", "vet", "auditor"]
                 )
             
-            # Farm assignment for managers
-            farm_id = None
-            if role == "manager":
-                db_temp = get_db()
-                try:
-                    farms = db_temp.query(Farm).all()
-                    if farms:
-                        farm_options = {f"{farm.name} ({farm.location})": farm.id for farm in farms}
-                        farm_options = {"None (No Farm Assigned)": None, **farm_options}
-                        selected_farm = st.selectbox(
-                            "🏠 Assign Farm (Managers only)",
-                            options=list(farm_options.keys())
-                        )
-                        farm_id = farm_options[selected_farm]
-                finally:
-                    db_temp.close()
-            
             submit = st.form_submit_button(get_text("create_user"))
             
             if submit:
@@ -86,7 +69,7 @@ def render_user_management():
                     if not valid_password:
                         st.error(password_message)
                     else:
-                        success, message = create_user(name, email, password, role, farm_id)
+                        success, message = create_user(name, email, password, role, None)
                         if success:
                             st.success(message)
                             st.rerun()
@@ -103,18 +86,16 @@ def render_user_management():
         if users:
             user_data = []
             for user in users:
-                farm_name = "N/A"
-                if user.farm_id:
-                    farm = db.query(Farm).filter(Farm.id == user.farm_id).first()
-                    if farm:
-                        farm_name = farm.name
+                # Get assigned farms using new many-to-many relationship
+                farm_names = [f.name for f in user.assigned_farms] if user.assigned_farms else []
+                farm_display = ", ".join(farm_names) if farm_names else "None"
                 
                 user_data.append({
                     "ID": user.id,
                     "Name": user.name,
                     "Email": user.email,
                     "Role": user.role,
-                    "Assigned Farm": farm_name,
+                    "Assigned Farms": farm_display,
                     "Created": user.created_at.strftime("%Y-%m-%d"),
                     "Active": "Yes" if user.is_active else "No"
                 })
@@ -562,18 +543,22 @@ def create_barn(farm_id, name, capacity, position_x, position_y, position_z):
         db.close()
 
 def assign_farm_to_manager(manager_id, farm_id):
-    """Assign or reassign a farm to a manager"""
+    """Deprecated: Use assign_user_to_farm/unassign_user_from_farm instead"""
+    # This function is deprecated but kept for compatibility
+    # Handles both assignment and unassignment for backward compatibility
+    from database import assign_user_to_farm as assign_func, unassign_user_from_farm as unassign_func
     db = get_db()
     try:
-        user = db.query(User).filter(User.id == manager_id).first()
-        if user and user.role == "manager":
-            user.farm_id = farm_id
-            db.commit()
+        if farm_id is None:
+            # Unassign from all farms
+            user = db.query(User).filter(User.id == manager_id).first()
+            if user and user.assigned_farms:
+                for farm in list(user.assigned_farms):
+                    unassign_func(manager_id, farm.id, db)
+                return True
             return True
-        return False
-    except Exception as e:
-        db.rollback()
-        print(f"Error assigning farm: {e}")
-        return False
+        else:
+            # Assign to farm
+            return assign_func(manager_id, farm_id, db)
     finally:
         db.close()

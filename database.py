@@ -62,7 +62,7 @@ def get_accessible_farm_ids(user_id: int, user_role: str, db: Session):
     """Get list of farm IDs accessible to the user based on their role"""
     if can_access_all_farms(user_role):
         # Admin and auditor can see all farms
-        farms = db.query(Farm.id).all()
+        farms = db.query(Farm).all()
         return [farm.id for farm in farms]
     else:
         # Other users can only see assigned farms

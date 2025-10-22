@@ -6,8 +6,8 @@ from PIL import Image
 import pandas as pd
 from datetime import datetime
 import os
-from database import get_db
-from models import Alert, User, Barn
+from database import get_db, get_accessible_farm_ids
+from models import Alert, User, Barn, Farm
 
 def generate_qr_code(data):
     """Generate QR code for given data"""
@@ -157,15 +157,40 @@ def display_alerts_sidebar():
                         st.rerun()
 
 def get_dashboard_metrics():
-    """Get key metrics for dashboard"""
+    """Get key metrics for dashboard filtered by user's assigned farms"""
     db = get_db()
     try:
-        from models import Barn, Checklist, Incident, User
+        from models import Barn, Checklist, Incident
         
-        total_barns = db.query(Barn).count()
-        high_risk_barns = db.query(Barn).filter(Barn.risk_level == "high").count()
-        total_checklists = db.query(Checklist).count()
-        unresolved_incidents = db.query(Incident).filter(Incident.resolved == False).count()
+        # Get user's accessible farms
+        user_id = st.session_state.get('user').id
+        user_role = st.session_state.get('role')
+        accessible_farm_ids = get_accessible_farm_ids(user_id, user_role, db)
+        
+        if not accessible_farm_ids:
+            # User has no assigned farms
+            return {
+                "total_barns": 0,
+                "high_risk_barns": 0,
+                "total_checklists": 0,
+                "unresolved_incidents": 0
+            }
+        
+        # Filter barns by accessible farms
+        total_barns = db.query(Barn).filter(Barn.farm_id.in_(accessible_farm_ids)).count()
+        high_risk_barns = db.query(Barn).filter(
+            Barn.farm_id.in_(accessible_farm_ids),
+            Barn.risk_level == "high"
+        ).count()
+        
+        # Filter checklists by barns in accessible farms
+        barns_in_farms = db.query(Barn).filter(Barn.farm_id.in_(accessible_farm_ids)).all()
+        barn_ids = [b.id for b in barns_in_farms]
+        total_checklists = db.query(Checklist).filter(Checklist.barn_id.in_(barn_ids)).count() if barn_ids else 0
+        unresolved_incidents = db.query(Incident).filter(
+            Incident.barn_id.in_(barn_ids),
+            Incident.resolved == False
+        ).count() if barn_ids else 0
         
         return {
             "total_barns": total_barns,

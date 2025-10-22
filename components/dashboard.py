@@ -3,8 +3,8 @@ import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
 from datetime import datetime, timedelta
-from database import get_db
-from models import Barn, Checklist, Incident, Alert
+from database import get_db, get_accessible_farm_ids
+from models import Barn, Checklist, Incident, Alert, Farm
 from utils import get_dashboard_metrics, display_alerts_sidebar, get_risk_color
 from components.visualization import render_3d_farm
 from translations import get_text
@@ -82,16 +82,37 @@ def render_dashboard():
                     st.error(get_text("predictions_error"))
 
 def render_recent_activities():
-    """Render recent activities panel"""
+    """Render recent activities panel filtered by assigned farms"""
     db = get_db()
     try:
-        # Get recent checklists
-        recent_checklists = db.query(Checklist).order_by(
+        # Get user's accessible farms
+        user_id = st.session_state.get('user').id
+        user_role = st.session_state.get('role')
+        accessible_farm_ids = get_accessible_farm_ids(user_id, user_role, db)
+        
+        if not accessible_farm_ids:
+            st.info("No farms assigned. Please contact admin.")
+            return
+        
+        # Get barn IDs from accessible farms
+        barns_in_farms = db.query(Barn).filter(Barn.farm_id.in_(accessible_farm_ids)).all()
+        barn_ids = [b.id for b in barns_in_farms]
+        
+        if not barn_ids:
+            st.info("No barns available in assigned farms.")
+            return
+        
+        # Get recent checklists filtered by accessible barns
+        recent_checklists = db.query(Checklist).filter(
+            Checklist.barn_id.in_(barn_ids)
+        ).order_by(
             Checklist.submitted_at.desc()
         ).limit(5).all()
         
-        # Get recent incidents
-        recent_incidents = db.query(Incident).order_by(
+        # Get recent incidents filtered by accessible barns
+        recent_incidents = db.query(Incident).filter(
+            Incident.barn_id.in_(barn_ids)
+        ).order_by(
             Incident.reported_at.desc()
         ).limit(3).all()
         
@@ -116,10 +137,19 @@ def render_recent_activities():
         db.close()
 
 def render_risk_distribution_chart():
-    """Render risk distribution pie chart"""
+    """Render risk distribution pie chart filtered by assigned farms"""
     db = get_db()
     try:
-        barns = db.query(Barn).all()
+        # Get user's accessible farms
+        user_id = st.session_state.get('user').id
+        user_role = st.session_state.get('role')
+        accessible_farm_ids = get_accessible_farm_ids(user_id, user_role, db)
+        
+        if not accessible_farm_ids:
+            st.info("No farms assigned.")
+            return
+        
+        barns = db.query(Barn).filter(Barn.farm_id.in_(accessible_farm_ids)).all()
         
         risk_counts = {"High": 0, "Medium": 0, "Low": 0}
         for barn in barns:
@@ -143,13 +173,31 @@ def render_risk_distribution_chart():
         db.close()
 
 def render_checklist_trends():
-    """Render checklist submission trends"""
+    """Render checklist submission trends filtered by assigned farms"""
     db = get_db()
     try:
-        # Get checklists from last 30 days
+        # Get user's accessible farms
+        user_id = st.session_state.get('user').id
+        user_role = st.session_state.get('role')
+        accessible_farm_ids = get_accessible_farm_ids(user_id, user_role, db)
+        
+        if not accessible_farm_ids:
+            st.info("No farms assigned.")
+            return
+        
+        # Get barn IDs from accessible farms
+        barns_in_farms = db.query(Barn).filter(Barn.farm_id.in_(accessible_farm_ids)).all()
+        barn_ids = [b.id for b in barns_in_farms]
+        
+        if not barn_ids:
+            st.info("No barns available.")
+            return
+        
+        # Get checklists from last 30 days filtered by accessible barns
         start_date = datetime.utcnow() - timedelta(days=30)
         checklists = db.query(Checklist).filter(
-            Checklist.submitted_at >= start_date
+            Checklist.submitted_at >= start_date,
+            Checklist.barn_id.in_(barn_ids)
         ).all()
         
         # Group by date
