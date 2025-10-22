@@ -1,9 +1,15 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float, Text, Boolean, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, DateTime, Float, Text, Boolean, ForeignKey, JSON, Table
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
 Base = declarative_base()
+
+user_farm_assignment = Table('user_farm_assignments', Base.metadata,
+    Column('user_id', Integer, ForeignKey('users.id'), primary_key=True),
+    Column('farm_id', Integer, ForeignKey('farms.id'), primary_key=True),
+    Column('assigned_at', DateTime, default=datetime.utcnow)
+)
 
 class User(Base):
     __tablename__ = "users"
@@ -13,11 +19,10 @@ class User(Base):
     email = Column(String(100), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     role = Column(String(20), nullable=False)  # admin, manager, worker, visitor, vet, auditor
-    farm_id = Column(Integer, ForeignKey("farms.id"), nullable=True)  # For manager assignment
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
     
-    farm = relationship("Farm")
+    assigned_farms = relationship("Farm", secondary=user_farm_assignment, back_populates="assigned_users")
 
 class Farm(Base):
     __tablename__ = "farms"
@@ -27,6 +32,8 @@ class Farm(Base):
     location = Column(String(200))
     description = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+    assigned_users = relationship("User", secondary=user_farm_assignment, back_populates="assigned_farms")
 
 class Barn(Base):
     __tablename__ = "barns"
