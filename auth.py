@@ -86,7 +86,7 @@ def require_role(allowed_roles):
         return wrapper
     return decorator
 
-def create_user(name: str, email: str, password: str, role: str):
+def create_user(name: str, email: str, password: str, role: str, farm_id: int = None):
     """Create a new user"""
     db = get_db()
     try:
@@ -100,7 +100,8 @@ def create_user(name: str, email: str, password: str, role: str):
             name=name,
             email=email,
             password_hash=password_hash,
-            role=role
+            role=role,
+            farm_id=farm_id
         )
         db.add(user)
         db.commit()

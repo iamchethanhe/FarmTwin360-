@@ -148,6 +148,40 @@ def render_user_management():
                     activate_user(user_id)
                     st.success(get_text("user_activated"))
                     st.rerun()
+            
+            # Farm Manager Assignment
+            st.subheader("🏠 Assign/Reassign Farm to Manager")
+            managers = [user for user in users if user.role == "manager"]
+            
+            if managers:
+                with st.form("assign_farm_form"):
+                    manager_options = {f"{m.id} - {m.name} ({m.email})": m.id for m in managers}
+                    selected_manager = st.selectbox(
+                        "Select Manager",
+                        options=list(manager_options.keys())
+                    )
+                    manager_id = manager_options[selected_manager]
+                    
+                    farms = db.query(Farm).all()
+                    if farms:
+                        farm_options = {f"{farm.name} ({farm.location or 'No location'})": farm.id for farm in farms}
+                        farm_options = {"None (Remove Farm Assignment)": None, **farm_options}
+                        selected_farm_assign = st.selectbox(
+                            "Assign to Farm",
+                            options=list(farm_options.keys())
+                        )
+                        new_farm_id = farm_options[selected_farm_assign]
+                        
+                        if st.form_submit_button("Update Farm Assignment"):
+                            if assign_farm_to_manager(manager_id, new_farm_id):
+                                st.success("Farm assignment updated successfully")
+                                st.rerun()
+                            else:
+                                st.error("Error updating farm assignment")
+                    else:
+                        st.info("No farms available. Create a farm first.")
+            else:
+                st.info("No managers found. Create a manager first.")
         else:
             st.info(get_text("no_users_found"))
     
@@ -214,6 +248,78 @@ def render_farm_management():
                         st.dataframe(barn_df, use_container_width=True)
         else:
             st.info(get_text("no_farms_found"))
+    
+    finally:
+        db.close()
+
+def render_barn_management():
+    """Render barn management interface"""
+    st.subheader("🏭 Barn Management")
+    
+    # Add new barn
+    with st.expander("➕ Add New Barn"):
+        with st.form("add_barn_form"):
+            db_temp = get_db()
+            try:
+                farms = db_temp.query(Farm).all()
+                if not farms:
+                    st.warning("Please create a farm first before adding barns")
+                else:
+                    farm_options = {f"{farm.name} ({farm.location or 'No location'})": farm.id for farm in farms}
+                    selected_farm = st.selectbox("🏠 Select Farm", options=list(farm_options.keys()))
+                    farm_id = farm_options[selected_farm]
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        barn_name = st.text_input("Barn Name")
+                        capacity = st.number_input("Capacity", min_value=0, value=100)
+                    
+                    with col2:
+                        position_x = st.number_input("Position X", value=0.0, step=1.0)
+                        position_y = st.number_input("Position Y", value=0.0, step=1.0)
+                        position_z = st.number_input("Position Z", value=0.0, step=1.0)
+                    
+                    submit = st.form_submit_button("Create Barn")
+                    
+                    if submit:
+                        if not barn_name:
+                            st.error("Barn name is required")
+                        else:
+                            success = create_barn(farm_id, barn_name, capacity, position_x, position_y, position_z)
+                            if success:
+                                st.success("Barn created successfully")
+                                st.rerun()
+                            else:
+                                st.error("Error creating barn")
+            finally:
+                db_temp.close()
+    
+    # Display existing barns
+    st.subheader("Existing Barns")
+    
+    db = get_db()
+    try:
+        barns = db.query(Barn).all()
+        
+        if barns:
+            barn_data = []
+            for barn in barns:
+                farm = db.query(Farm).filter(Farm.id == barn.farm_id).first()
+                farm_name = farm.name if farm else "Unknown"
+                
+                barn_data.append({
+                    "ID": barn.id,
+                    "Barn Name": barn.name,
+                    "Farm": farm_name,
+                    "Capacity": barn.capacity,
+                    "Risk Level": barn.risk_level.title() if barn.risk_level else "Low",
+                    "Position": f"({barn.position_x}, {barn.position_y}, {barn.position_z})"
+                })
+            
+            df = pd.DataFrame(barn_data)
+            st.dataframe(df, use_container_width=True)
+        else:
+            st.info("No barns found")
     
     finally:
         db.close()
@@ -300,6 +406,46 @@ def activate_user(user_id):
         return False
     except Exception as e:
         db.rollback()
+        return False
+    finally:
+        db.close()
+
+def create_barn(farm_id, name, capacity, position_x, position_y, position_z):
+    """Create a new barn"""
+    db = get_db()
+    try:
+        barn = Barn(
+            farm_id=farm_id,
+            name=name,
+            capacity=capacity,
+            position_x=position_x,
+            position_y=position_y,
+            position_z=position_z,
+            risk_level="low"
+        )
+        db.add(barn)
+        db.commit()
+        return True
+    except Exception as e:
+        db.rollback()
+        print(f"Error creating barn: {e}")
+        return False
+    finally:
+        db.close()
+
+def assign_farm_to_manager(manager_id, farm_id):
+    """Assign or reassign a farm to a manager"""
+    db = get_db()
+    try:
+        user = db.query(User).filter(User.id == manager_id).first()
+        if user and user.role == "manager":
+            user.farm_id = farm_id
+            db.commit()
+            return True
+        return False
+    except Exception as e:
+        db.rollback()
+        print(f"Error assigning farm: {e}")
         return False
     finally:
         db.close()
