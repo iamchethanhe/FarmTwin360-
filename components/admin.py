@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from database import get_db
+from database import get_db, assign_user_to_farm, unassign_user_from_farm, get_user_assigned_farms
 from models import User, Farm, Barn
 from auth import create_user
 from utils import validate_email, validate_password, check_permissions
@@ -17,6 +17,7 @@ def render_admin_panel():
     tabs = st.tabs([
         "👥 " + get_text("user_management"),
         "🏠 " + get_text("farm_management"),
+        "🔗 Farm Assignments",
         "🏭 Barn Management",
         "⚙️ " + get_text("system_settings")
     ])
@@ -28,9 +29,12 @@ def render_admin_panel():
         render_farm_management()
     
     with tabs[2]:
-        render_barn_management()
+        render_farm_assignments()
     
     with tabs[3]:
+        render_barn_management()
+    
+    with tabs[4]:
         render_system_settings()
 
 def render_user_management():
@@ -248,6 +252,130 @@ def render_farm_management():
                         st.dataframe(barn_df, use_container_width=True)
         else:
             st.info(get_text("no_farms_found"))
+    
+    finally:
+        db.close()
+
+def render_farm_assignments():
+    """Render farm assignment interface for managing user-farm relationships"""
+    st.subheader("🔗 Farm Assignments")
+    
+    st.info("💡 **Access Control:** Workers, Visitors, Veterinarians, and Managers can only see data from their assigned farms. Auditors can see all farms. Admins have full access.")
+    
+    db = get_db()
+    try:
+        # Get all users and farms
+        users = db.query(User).filter(User.role != "admin").all()
+        farms = db.query(Farm).all()
+        
+        if not farms:
+            st.warning("No farms available. Please create farms first in the Farm Management tab.")
+            return
+        
+        if not users:
+            st.warning("No users available. Please create users first in the User Management tab.")
+            return
+        
+        # Assign user to farm
+        with st.expander("➕ Assign User to Farm"):
+            with st.form("assign_user_farm"):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    # Filter users by role (exclude admin)
+                    assignable_users = [u for u in users if u.role in ["manager", "worker", "visitor", "vet"]]
+                    if assignable_users:
+                        user_options = {f"{u.name} ({u.role}) - {u.email}": u.id for u in assignable_users}
+                        selected_user = st.selectbox("Select User", options=list(user_options.keys()))
+                        user_id = user_options[selected_user]
+                    else:
+                        st.warning("No assignable users found")
+                        user_id = None
+                
+                with col2:
+                    farm_options = {f"{f.name} ({f.location or 'No location'})": f.id for f in farms}
+                    selected_farm = st.selectbox("Select Farm", options=list(farm_options.keys()))
+                    farm_id = farm_options[selected_farm]
+                
+                if st.form_submit_button("Assign to Farm"):
+                    if user_id and farm_id:
+                        if assign_user_to_farm(user_id, farm_id, db):
+                            st.success("User successfully assigned to farm!")
+                            st.rerun()
+                        else:
+                            st.error("User is already assigned to this farm or an error occurred")
+        
+        # Remove user from farm
+        with st.expander("➖ Remove User from Farm"):
+            with st.form("unassign_user_farm"):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    assignable_users = [u for u in users if u.role in ["manager", "worker", "visitor", "vet"]]
+                    if assignable_users:
+                        user_options = {f"{u.name} ({u.role}) - {u.email}": u.id for u in assignable_users}
+                        selected_user_rm = st.selectbox("Select User", options=list(user_options.keys()), key="remove_user")
+                        user_id_rm = user_options[selected_user_rm]
+                    else:
+                        st.warning("No assignable users found")
+                        user_id_rm = None
+                
+                with col2:
+                    farm_options_rm = {f"{f.name} ({f.location or 'No location'})": f.id for f in farms}
+                    selected_farm_rm = st.selectbox("Select Farm", options=list(farm_options_rm.keys()), key="remove_farm")
+                    farm_id_rm = farm_options_rm[selected_farm_rm]
+                
+                if st.form_submit_button("Remove from Farm"):
+                    if user_id_rm and farm_id_rm:
+                        if unassign_user_from_farm(user_id_rm, farm_id_rm, db):
+                            st.success("User successfully removed from farm!")
+                            st.rerun()
+                        else:
+                            st.error("User is not assigned to this farm or an error occurred")
+        
+        # Display current farm assignments
+        st.subheader("📋 Current Farm Assignments")
+        
+        # Create assignment data for display
+        assignment_data = []
+        for user in users:
+            assigned_farm_names = [f.name for f in user.assigned_farms]
+            if user.role == "auditor":
+                farm_access = "All Farms (Auditor)"
+            elif user.role == "admin":
+                farm_access = "All Farms (Admin)"
+            elif assigned_farm_names:
+                farm_access = ", ".join(assigned_farm_names)
+            else:
+                farm_access = "❌ No Farms Assigned"
+            
+            assignment_data.append({
+                "User": user.name,
+                "Email": user.email,
+                "Role": user.role.title(),
+                "Assigned Farms": farm_access
+            })
+        
+        df = pd.DataFrame(assignment_data)
+        st.dataframe(df, use_container_width=True, height=400)
+        
+        # Farm view - show users per farm
+        st.subheader("🏠 Users Per Farm")
+        for farm in farms:
+            with st.expander(f"🏠 {farm.name}"):
+                assigned_users = farm.assigned_users
+                if assigned_users:
+                    user_list = []
+                    for user in assigned_users:
+                        user_list.append({
+                            "Name": user.name,
+                            "Email": user.email,
+                            "Role": user.role.title()
+                        })
+                    user_df = pd.DataFrame(user_list)
+                    st.dataframe(user_df, use_container_width=True)
+                else:
+                    st.info("No users assigned to this farm yet.")
     
     finally:
         db.close()
