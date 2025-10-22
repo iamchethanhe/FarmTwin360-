@@ -1,0 +1,64 @@
+Build a complete FarmTwin 360 project — IoT-free, hackathon-ready — as a full stack application including web dashboard, mobile app, backend API, database, and AI risk prediction. 
+
+Requirements:
+
+1. **Tech Stack**
+   - Frontend: React + Three.js + TailwindCSS
+   - Mobile App: Flutter (offline-first, Android + iOS)
+   - Backend API: Python FastAPI
+   - Database: PostgreSQL (or SQLite for demo)
+   - AI Engine: Python (Scikit-learn or TensorFlow Lite for simple risk prediction)
+   - Notifications: Firebase Cloud Messaging or Twilio
+   - Authentication: JWT, role-based access control
+
+2. **Core Features**
+   - **Digital Twin Visualization:** 3D/2D virtual farm model (barns, pens, silos, gates) updating in real-time with manual inputs
+   - **Manual Data Input:** Mobile app for daily checklists, visitor logs, incident reporting (GPS + photo)
+   - **AI Risk Prediction:** Detect high, medium, low risk for barns using manual checklist data
+   - **Compliance & Analytics Dashboard:** Mortality trends, hygiene scores, risk heatmap, exportable PDF/CSV reports
+   - **Real-Time Alerts:** Push/email notifications for missed checklists or high-risk entries
+   - **Offline Mode:** Mobile app can store data locally and sync later
+   - **Multilingual UI:** English + regional languages
+
+3. **User Roles**
+   - Admin: Full access, manage farms, users, generate reports
+   - Manager: View dashboards, approve visitor logs, generate analytics
+   - Vet: Analyze incidents, recommend preventive actions, access reports
+   - Worker: Submit checklists, report incidents, attach photos
+   - Visitor: QR-based entry, follow SOPs, limited view
+   - Auditor: Read-only access to compliance reports
+
+4. **Backend Functionality**
+   - User authentication (JWT) and role-based access control
+   - CRUD for checklists, visitors, incidents
+   - AI-based risk prediction endpoint (`/risk/`) based on latest manual data
+   - Endpoint for user management (`/register`, `/login`) with roles
+
+5. **Frontend Functionality**
+   - Login page with role-based access
+   - Admin dashboard to add/manage users and farms
+   - Manager/Vet dashboard for analytics and risk visualization
+   - 3D Digital Twin visualization using Three.js
+   - Export reports (PDF/CSV)
+   - Real-time color-coded barn risk updates
+
+6. **Mobile App Functionality**
+   - Login screen with role-based access
+   - Worker checklist submission with photos and GPS
+   - Visitor QR check-in
+   - Offline-first mode (store locally, sync when online)
+   - Push notifications for alerts
+
+7. **Hackathon Demo**
+   - Pre-create 3–4 demo users (Admin, Manager, Worker, Visitor)
+   - Demo workflow: Worker submits checklist → AI predicts risk → Dashboard updates in real-time → Alerts generated
+   - Show role-based permissions in action
+
+8. **Deliverables**
+   - Full folder structure with separate backend, frontend, mobile folders
+   - All required files (React, Flutter, FastAPI, database, AI scripts)
+   - README.md with instructions to run locally
+   - Fully working, no errors, IoT-free, ready to present at hackathon
+
+Generate **all code, configuration files, folder structure, and instructions** so that I can directly run the project locally.
+   make sure create all pages with working functionalities
