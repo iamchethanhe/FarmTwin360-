@@ -1,4 +1,5 @@
 import os
+import streamlit as st
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from models import Base, User, Farm, Barn, Checklist, Incident, Visitor, Alert
@@ -6,18 +7,30 @@ from datetime import datetime, timedelta
 import bcrypt
 import random
 
-# Database configuration
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@localhost/farmtwin")
+@st.cache_resource
+def get_engine():
+    """Get or create database engine (cached)"""
+    database_url = os.getenv("DATABASE_URL")
+    
+    if not database_url:
+        st.error("⚠️ Database connection not configured. Please set the DATABASE_URL environment variable in Replit Secrets.")
+        st.stop()
+    
+    return create_engine(database_url)
 
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+def get_session_factory():
+    """Get session factory"""
+    engine = get_engine()
+    return sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def init_database():
     """Initialize database tables"""
+    engine = get_engine()
     Base.metadata.create_all(bind=engine)
 
 def get_db() -> Session:
     """Get database session"""
+    SessionLocal = get_session_factory()
     db = SessionLocal()
     try:
         return db
