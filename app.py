@@ -24,15 +24,177 @@ if not st.session_state.get('demo_data_created', False):
 def main():
     st.set_page_config(
         page_title="FarmTwin 360",
-        page_icon="🚜",
+        page_icon="🌾",
         layout="wide",
         initial_sidebar_state="expanded"
     )
     
+    # Custom CSS for green theme
+    st.markdown("""
+    <style>
+    /* Main container styling */
+    .stApp {
+        background: linear-gradient(135deg, #F1F8E9 0%, #E8F5E9 100%);
+    }
+    
+    /* Header styling */
+    h1 {
+        color: #1B5E20 !important;
+        font-weight: 700 !important;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    h2, h3 {
+        color: #2E7D32 !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Card styling */
+    .stMetric {
+        background: linear-gradient(135deg, #ffffff 0%, #C8E6C9 100%);
+        padding: 1rem;
+        border-radius: 10px;
+        border-left: 4px solid #4CAF50;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    /* Button styling */
+    .stButton>button {
+        background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%);
+        color: white;
+        font-weight: 600;
+        border-radius: 8px;
+        border: none;
+        padding: 0.5rem 2rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px rgba(76, 175, 80, 0.3);
+    }
+    
+    .stButton>button:hover {
+        background: linear-gradient(135deg, #388E3C 0%, #4CAF50 100%);
+        box-shadow: 0 6px 12px rgba(76, 175, 80, 0.4);
+        transform: translateY(-2px);
+    }
+    
+    /* Input fields */
+    .stTextInput>div>div>input, .stSelectbox>div>div>select {
+        border: 2px solid #A5D6A7;
+        border-radius: 8px;
+        background-color: #ffffff;
+        color: #1B5E20;
+        font-weight: 500;
+    }
+    
+    .stTextInput>div>div>input:focus, .stSelectbox>div>div>select:focus {
+        border-color: #4CAF50;
+        box-shadow: 0 0 0 0.2rem rgba(76, 175, 80, 0.25);
+    }
+    
+    /* Sidebar styling */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #2E7D32 0%, #388E3C 100%);
+    }
+    
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
+        color: #ffffff;
+        font-weight: 500;
+    }
+    
+    /* Expander styling */
+    .streamlit-expanderHeader {
+        background: linear-gradient(135deg, #C8E6C9 0%, #A5D6A7 100%);
+        border-radius: 8px;
+        color: #1B5E20;
+        font-weight: 600;
+    }
+    
+    /* Success/Error messages */
+    .stSuccess {
+        background-color: #C8E6C9;
+        color: #1B5E20;
+        border-left: 4px solid #4CAF50;
+        border-radius: 8px;
+    }
+    
+    .stError {
+        background-color: #FFCDD2;
+        color: #C62828;
+        border-left: 4px solid #F44336;
+        border-radius: 8px;
+    }
+    
+    /* Data tables */
+    .stDataFrame {
+        border: 2px solid #A5D6A7;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    /* Info boxes */
+    .stInfo {
+        background-color: #E1F5FE;
+        color: #01579B;
+        border-left: 4px solid #2196F3;
+        border-radius: 8px;
+    }
+    
+    /* Farm icon styling */
+    .farm-header {
+        background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%);
+        padding: 2rem;
+        border-radius: 15px;
+        text-align: center;
+        margin-bottom: 2rem;
+        box-shadow: 0 8px 16px rgba(76, 175, 80, 0.3);
+    }
+    
+    /* Risk indicators */
+    .risk-high {
+        background: #FFCDD2;
+        color: #C62828;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 700;
+        display: inline-block;
+    }
+    
+    .risk-medium {
+        background: #FFF9C4;
+        color: #F57F17;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 700;
+        display: inline-block;
+    }
+    
+    .risk-low {
+        background: #C8E6C9;
+        color: #1B5E20;
+        padding: 0.5rem 1rem;
+        border-radius: 20px;
+        font-weight: 700;
+        display: inline-block;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
     # Language selector in sidebar
     with st.sidebar:
-        languages = {"English": "en", "Español": "es"}
-        selected_lang = st.selectbox("Language / Idioma", list(languages.keys()))
+        languages = {
+            "English": "en", 
+            "Español": "es",
+            "हिन्दी": "hi",
+            "தமிழ்": "ta",
+            "తెలుగు": "te",
+            "বাংলা": "bn",
+            "मराठी": "mr",
+            "ગુજરાતી": "gu",
+            "ಕನ್ನಡ": "kn",
+            "മലയാളം": "ml",
+            "ਪੰਜਾਬੀ": "pa",
+            "ଓଡ଼ିଆ": "or"
+        }
+        selected_lang = st.selectbox("🌍 Language", list(languages.keys()))
         set_language(languages[selected_lang])
     
     # Authentication
@@ -42,16 +204,27 @@ def main():
         render_main_app()
 
 def render_login():
+    # Beautiful header
+    st.markdown("""
+    <div class="farm-header">
+        <h1 style="color: white; margin: 0; font-size: 3rem;">🌾 FarmTwin 360</h1>
+        <p style="color: #E8F5E9; font-size: 1.2rem; margin-top: 0.5rem;">Digital Farm Management System</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     st.title(get_text("login_title"))
     
     # Demo users info
-    with st.expander(get_text("demo_users")):
-        st.write("**Admin:** admin@farmtwin.com / admin123")
-        st.write("**Manager:** manager@farmtwin.com / manager123")
-        st.write("**Worker:** worker@farmtwin.com / worker123")
-        st.write("**Visitor:** visitor@farmtwin.com / visitor123")
-        st.write("**Vet:** vet@farmtwin.com / vet123")
-        st.write("**Auditor:** auditor@farmtwin.com / auditor123")
+    with st.expander("👥 " + get_text("demo_users")):
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("🔑 **Admin:** admin@farmtwin.com / admin123")
+            st.markdown("👔 **Manager:** manager@farmtwin.com / manager123")
+            st.markdown("👷 **Worker:** worker@farmtwin.com / worker123")
+        with col2:
+            st.markdown("👤 **Visitor:** visitor@farmtwin.com / visitor123")
+            st.markdown("🩺 **Vet:** vet@farmtwin.com / vet123")
+            st.markdown("📊 **Auditor:** auditor@farmtwin.com / auditor123")
     
     col1, col2, col3 = st.columns([1, 2, 1])
     
@@ -75,17 +248,34 @@ def render_login():
 def render_main_app():
     user_role = st.session_state.role
     
-    # Header
-    col1, col2, col3 = st.columns([2, 4, 2])
+    # Beautiful header
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%); 
+                padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem; 
+                box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);">
+        <h1 style="color: white; margin: 0; text-align: center; font-size: 2.5rem;">
+            🌾 FarmTwin 360 - Digital Farm Management
+        </h1>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # User info header
+    col1, col2, col3 = st.columns([3, 4, 3])
     with col1:
-        st.write(f"**{get_text('welcome')}** {st.session_state.user.name}")
-        st.write(f"**{get_text('role')}:** {user_role}")
-    
+        st.markdown(f"### 👤 {get_text('welcome')}, {st.session_state.user.name}")
     with col2:
-        st.title("🚜 FarmTwin 360")
-    
+        role_icons = {
+            "admin": "👑",
+            "manager": "👔", 
+            "worker": "👷",
+            "visitor": "👤",
+            "vet": "🩺",
+            "auditor": "📊"
+        }
+        icon = role_icons.get(user_role, "👤")
+        st.markdown(f"### {icon} {get_text('role')}: {user_role.title()}")
     with col3:
-        if st.button(get_text("logout")):
+        if st.button("🚪 " + get_text("logout"), use_container_width=True):
             logout_user()
             st.rerun()
     

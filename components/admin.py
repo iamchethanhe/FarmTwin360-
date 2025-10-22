@@ -12,12 +12,13 @@ def render_admin_panel():
         st.error(get_text("access_denied"))
         return
     
-    st.title(get_text("admin_panel"))
+    st.title("👑 " + get_text("admin_panel"))
     
     tabs = st.tabs([
-        get_text("user_management"),
-        get_text("farm_management"),
-        get_text("system_settings")
+        "👥 " + get_text("user_management"),
+        "🏠 " + get_text("farm_management"),
+        "🏭 Barn Management",
+        "⚙️ " + get_text("system_settings")
     ])
     
     with tabs[0]:
@@ -27,6 +28,9 @@ def render_admin_panel():
         render_farm_management()
     
     with tabs[2]:
+        render_barn_management()
+    
+    with tabs[3]:
         render_system_settings()
 
 def render_user_management():
@@ -34,7 +38,7 @@ def render_user_management():
     st.subheader(get_text("user_management"))
     
     # Add new user form
-    with st.expander(get_text("add_new_user")):
+    with st.expander("➕ " + get_text("add_new_user")):
         with st.form("add_user_form"):
             col1, col2 = st.columns(2)
             
@@ -49,6 +53,23 @@ def render_user_management():
                     ["admin", "manager", "worker", "visitor", "vet", "auditor"]
                 )
             
+            # Farm assignment for managers
+            farm_id = None
+            if role == "manager":
+                db_temp = get_db()
+                try:
+                    farms = db_temp.query(Farm).all()
+                    if farms:
+                        farm_options = {f"{farm.name} ({farm.location})": farm.id for farm in farms}
+                        farm_options = {"None (No Farm Assigned)": None, **farm_options}
+                        selected_farm = st.selectbox(
+                            "🏠 Assign Farm (Managers only)",
+                            options=list(farm_options.keys())
+                        )
+                        farm_id = farm_options[selected_farm]
+                finally:
+                    db_temp.close()
+            
             submit = st.form_submit_button(get_text("create_user"))
             
             if submit:
@@ -61,7 +82,7 @@ def render_user_management():
                     if not valid_password:
                         st.error(password_message)
                     else:
-                        success, message = create_user(name, email, password, role)
+                        success, message = create_user(name, email, password, role, farm_id)
                         if success:
                             st.success(message)
                             st.rerun()
@@ -78,11 +99,18 @@ def render_user_management():
         if users:
             user_data = []
             for user in users:
+                farm_name = "N/A"
+                if user.farm_id:
+                    farm = db.query(Farm).filter(Farm.id == user.farm_id).first()
+                    if farm:
+                        farm_name = farm.name
+                
                 user_data.append({
                     "ID": user.id,
                     "Name": user.name,
                     "Email": user.email,
                     "Role": user.role,
+                    "Assigned Farm": farm_name,
                     "Created": user.created_at.strftime("%Y-%m-%d"),
                     "Active": "Yes" if user.is_active else "No"
                 })
@@ -128,14 +156,19 @@ def render_user_management():
 
 def render_farm_management():
     """Render farm management interface"""
-    st.subheader(get_text("farm_management"))
+    st.subheader("🏠 " + get_text("farm_management"))
     
     # Add new farm
-    with st.expander(get_text("add_new_farm")):
+    with st.expander("➕ " + get_text("add_new_farm")):
         with st.form("add_farm_form"):
-            farm_name = st.text_input(get_text("farm_name"))
-            location = st.text_input(get_text("location"))
-            description = st.text_area(get_text("description"))
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                farm_name = st.text_input(get_text("farm_name"))
+                location = st.text_input(get_text("location"))
+            
+            with col2:
+                description = st.text_area(get_text("description"))
             
             submit = st.form_submit_button(get_text("create_farm"))
             

@@ -13,8 +13,11 @@ class User(Base):
     email = Column(String(100), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     role = Column(String(20), nullable=False)  # admin, manager, worker, visitor, vet, auditor
+    farm_id = Column(Integer, ForeignKey("farms.id"), nullable=True)  # For manager assignment
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
+    
+    farm = relationship("Farm")
 
 class Farm(Base):
     __tablename__ = "farms"
