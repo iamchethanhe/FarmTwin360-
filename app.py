@@ -8,6 +8,8 @@ from components.admin import render_admin_panel
 from components.worker import render_worker_interface
 from components.visitor import render_visitor_interface
 from components.analytics import render_analytics
+from components.approvals import render_manager_approvals
+from components.notifications import render_notifications
 from translations import get_text, set_language
 
 # Initialize session state
@@ -543,6 +545,18 @@ def render_main_app():
             menu_icon="cast",
             default_index=0,
         )
+        
+        # Render notifications in sidebar
+        render_notifications()
+    
+    # Check for quick action navigation
+    if st.session_state.get('show_admin_section'):
+        render_admin_panel()
+        return
+    
+    if st.session_state.get('show_manager_approvals'):
+        render_manager_approvals()
+        return
     
     # Render selected page
     if selected == get_text("dashboard"):
@@ -555,6 +569,8 @@ def render_main_app():
         render_visitor_interface()
     elif selected == get_text("analytics"):
         render_analytics()
+    elif selected == "Approvals":
+        render_manager_approvals()
 
 def get_menu_options(role):
     base_options = [get_text("dashboard")]
@@ -562,7 +578,7 @@ def get_menu_options(role):
     if role == "admin":
         return base_options + [get_text("admin_panel"), get_text("analytics")]
     elif role == "manager":
-        return base_options + [get_text("analytics")]
+        return base_options + ["Approvals", get_text("analytics")]
     elif role == "worker":
         return base_options + [get_text("worker_interface")]
     elif role == "visitor":
@@ -578,7 +594,7 @@ def get_menu_icons(role):
     if role == "admin":
         return base_icons + ["gear", "graph-up"]
     elif role == "manager":
-        return base_icons + ["graph-up"]
+        return base_icons + ["check2-circle", "graph-up"]
     elif role == "worker":
         return base_icons + ["clipboard"]
     elif role == "visitor":

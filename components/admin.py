@@ -14,6 +14,25 @@ def render_admin_panel():
     
     st.title("👑 " + get_text("admin_panel"))
     
+    # Get the section to display from quick action or default to 0
+    show_section = st.session_state.get('show_admin_section', None)
+    default_tab = 0
+    
+    if show_section == "users":
+        default_tab = 0
+    elif show_section == "farms":
+        default_tab = 1
+    elif show_section == "assignments":
+        default_tab = 2
+    elif show_section == "barns":
+        default_tab = 3
+    elif show_section == "settings":
+        default_tab = 4
+    
+    # Clear the quick action after reading it
+    if show_section:
+        st.session_state.show_admin_section = None
+    
     tabs = st.tabs([
         "👥 " + get_text("user_management"),
         "🏠 " + get_text("farm_management"),

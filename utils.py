@@ -183,13 +183,17 @@ def get_dashboard_metrics():
             Barn.risk_level == "high"
         ).count()
         
-        # Filter checklists by barns in accessible farms
+# Filter checklists by barns in accessible farms
         barns_in_farms = db.query(Barn).filter(Barn.farm_id.in_(accessible_farm_ids)).all()
         barn_ids = [b.id for b in barns_in_farms]
-        total_checklists = db.query(Checklist).filter(Checklist.barn_id.in_(barn_ids)).count() if barn_ids else 0
+        total_checklists = db.query(Checklist).filter(
+            Checklist.barn_id.in_(barn_ids),
+            Checklist.approved == True
+        ).count() if barn_ids else 0
         unresolved_incidents = db.query(Incident).filter(
             Incident.barn_id.in_(barn_ids),
-            Incident.resolved == False
+            Incident.resolved == False,
+            Incident.approved == True
         ).count() if barn_ids else 0
         
         return {

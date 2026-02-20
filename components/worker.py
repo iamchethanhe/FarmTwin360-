@@ -6,6 +6,7 @@ from models import Barn, Checklist, Incident, Farm
 from utils import save_uploaded_file, create_alert
 from translations import get_text
 from ai_engine import risk_predictor
+from components.notifications import notify_users_on_checklist, notify_users_on_incident
 
 def render_worker_interface():
     """Render worker interface for data input"""
@@ -171,34 +172,16 @@ def render_checklist_form():
                 
                 db.add(checklist)
                 db.commit()
+                db.refresh(checklist)
                 
-                # Predict risk for this barn
-                features = [
-                    hygiene_score, mortality_count, feed_quality,
-                    water_quality, ventilation_score, temperature, humidity
-                ]
+                # Send notifications to managers and admins
+                try:
+                    notify_users_on_checklist(checklist, st.session_state.user.name)
+                except Exception as e:
+                    print(f"Warning: Failed to send notifications: {e}")
                 
-                risk_level, probabilities = risk_predictor.predict_risk(features)
-                risk_label = risk_predictor.get_risk_label(risk_level)
-                
-                # Update barn risk level
-                barn = db.query(Barn).filter(Barn.id == selected_barn_id).first()
-                if barn:
-                    barn.risk_level = risk_label.lower()
-                    barn.last_updated = datetime.utcnow()
-                    db.commit()
-                
-                # Create alert if high risk
-                if risk_label == "High":
-                    create_alert(
-                        "high_risk",
-                        f"High risk detected in {selected_barn_name} after latest checklist submission",
-                        "high",
-                        barn_id=selected_barn_id,
-                        user_id=st.session_state.user.id
-                    )
-                
-                st.success(f"Checklist submitted successfully! Predicted risk level: **{risk_label}**")
+                # Mark as pending manager approval; risk update happens upon approval
+                st.success("✅ Checklist submitted successfully! ⏳ Pending manager review - You'll be notified when approved.")
                 st.balloons()
     
     finally:
@@ -297,18 +280,19 @@ def render_incident_form():
                     
                     db.add(incident)
                     db.commit()
+                    db.refresh(incident)
                     
-                    # Create alert for high severity incidents
-                    if severity == "high":
-                        create_alert(
-                            "incident",
-                            f"High severity {incident_type} incident reported in {selected_barn_name}",
-                            "high",
-                            barn_id=selected_barn_id,
-                            user_id=st.session_state.user.id
-                        )
+                    # Send notifications to managers, admins, and vets (if high severity)
+                    try:
+                        notify_users_on_incident(incident, st.session_state.user.name)
+                    except Exception as e:
+                        print(f"Warning: Failed to send notifications: {e}")
                     
-                    st.success(get_text("incident_submitted"))
+                    # Manager approval required before alerts/dashboards
+                    if severity == 'high' or incident_type == 'disease':
+                        st.success("🚨 High-priority incident submitted! ⚠️ Pending approval - Managers and veterinarians have been notified.")
+                    else:
+                        st.success("✅ Incident submitted successfully! ⚠️ Pending approval - You'll be notified when reviewed.")
     
     finally:
         db.close()
@@ -335,9 +319,11 @@ def render_my_submissions():
             
             checklist_data = []
             for checklist in checklists:
+                approval_status = "✅ Approved" if checklist.approved else "⏳ Pending Review"
                 checklist_data.append({
                     "Date": checklist.submitted_at.strftime("%Y-%m-%d %H:%M"),
                     "Barn": checklist.barn.name if checklist.barn else "Unknown",
+                    "Status": approval_status,
                     "Hygiene": checklist.hygiene_score,
                     "Mortality": checklist.mortality_count,
                     "Temperature": f"{checklist.temperature}°C",
@@ -353,9 +339,11 @@ def render_my_submissions():
             
             incident_data = []
             for incident in incidents:
+                approval_status = "✅ Approved" if incident.approved else "⚠️ Pending Approval"
                 incident_data.append({
                     "Date": incident.reported_at.strftime("%Y-%m-%d %H:%M"),
                     "Barn": incident.barn.name if incident.barn else "Unknown",
+                    "Status": approval_status,
                     "Type": incident.incident_type.replace("_", " ").title(),
                     "Severity": incident.severity.title(),
                     "Resolved": "Yes" if incident.resolved else "No",

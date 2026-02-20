@@ -1,4 +1,13 @@
-.env
+# Python
+venv/
 __pycache__/
-*.db
 *.pyc
+*.db
+.env
+
+# Node
+node_modules/
+mobile-app/node_modules/
+
+# OS
+.DS_Store

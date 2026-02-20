@@ -3,7 +3,7 @@ import bcrypt
 import jwt
 from datetime import datetime, timedelta
 from database import get_db
-from models import User
+from models import User, Farm
 import os
 
 SECRET_KEY = os.getenv("SESSION_SECRET", "farmtwin-secret-key-change-in-production")
@@ -87,7 +87,7 @@ def require_role(allowed_roles):
     return decorator
 
 def create_user(name: str, email: str, password: str, role: str, farm_id: int = None):
-    """Create a new user"""
+    """Create a new user; optionally assign to a farm via many-to-many mapping"""
     db = get_db()
     try:
         # Check if user exists
@@ -100,11 +100,19 @@ def create_user(name: str, email: str, password: str, role: str, farm_id: int = 
             name=name,
             email=email,
             password_hash=password_hash,
-            role=role,
-            farm_id=farm_id
+            role=role
         )
         db.add(user)
         db.commit()
+        db.refresh(user)
+
+        # Optional: assign to a farm using the many-to-many relationship
+        if farm_id is not None:
+            farm = db.query(Farm).filter(Farm.id == farm_id).first()
+            if farm and farm not in user.assigned_farms:
+                user.assigned_farms.append(farm)
+                db.commit()
+
         return True, "User created successfully"
     except Exception as e:
         db.rollback()

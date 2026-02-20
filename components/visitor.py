@@ -11,6 +11,7 @@ def render_visitor_interface():
     
     tabs = st.tabs([
         get_text("check_in"),
+        "My Visit Status",
         get_text("sop_guidelines"),
         get_text("visitor_log")
     ])
@@ -19,9 +20,12 @@ def render_visitor_interface():
         render_check_in_form()
     
     with tabs[1]:
-        render_sop_guidelines()
+        render_visitor_checkout()
     
     with tabs[2]:
+        render_sop_guidelines()
+    
+    with tabs[3]:
         render_visitor_log()
 
 def render_check_in_form():
@@ -216,8 +220,8 @@ def render_sop_guidelines():
     """)
 
 def render_visitor_log():
-    """Render visitor log (for authorized personnel only)"""
-    if st.session_state.role not in ["admin", "manager", "vet"]:
+    """Render visitor log (accessible to visitors and authorized personnel)"""
+    if st.session_state.role not in ["admin", "manager", "vet", "visitor"]:
         st.warning(get_text("access_restricted"))
         return
     
@@ -256,6 +260,105 @@ def render_visitor_log():
             )
         else:
             st.info(get_text("no_visitors_logged"))
+    
+    finally:
+        db.close()
+
+def render_visitor_checkout():
+    """Render visitor checkout interface"""
+    st.subheader("My Visit Status & Checkout")
+    
+    # Search for visitor
+    st.write("**Find Your Visit:**")
+    search_method = st.radio(
+        "Search by:",
+        ["Email", "Name", "Visitor Code"],
+        horizontal=True
+    )
+    
+    db = get_db()
+    try:
+        search_value = None
+        visitors = []
+        
+        if search_method == "Email":
+            search_value = st.text_input("Enter your email", placeholder="your.email@company.com")
+            if search_value:
+                visitors = db.query(Visitor).filter(Visitor.email == search_value).order_by(Visitor.check_in_time.desc()).all()
+        elif search_method == "Name":
+            search_value = st.text_input("Enter your full name", placeholder="John Doe")
+            if search_value:
+                visitors = db.query(Visitor).filter(Visitor.name.ilike(f"%{search_value}%")).order_by(Visitor.check_in_time.desc()).all()
+        else:  # Visitor Code
+            search_value = st.text_input("Enter your visitor code", placeholder="VISITOR_20231027_123456_JOHN_DOE")
+            if search_value:
+                visitors = db.query(Visitor).filter(Visitor.qr_code == search_value).order_by(Visitor.check_in_time.desc()).all()
+        
+        if search_value and visitors:
+            # Display current/active visit
+            active_visits = [v for v in visitors if not v.check_out_time]
+            if active_visits:
+                st.success(f"Found {len(active_visits)} active visit(s)")
+                
+                for visitor in active_visits:
+                    with st.container():
+                        st.markdown("---")
+                        st.write("### Current Visit")
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            st.write(f"**Name:** {visitor.name}")
+                            st.write(f"**Company:** {visitor.company or 'N/A'}")
+                            st.write(f"**Email:** {visitor.email}")
+                            st.write(f"**Phone:** {visitor.phone or 'N/A'}")
+                        
+                        with col2:
+                            st.write(f"**Farm:** {visitor.farm.name if visitor.farm else 'N/A'}")
+                            st.write(f"**Purpose:** {visitor.purpose}")
+                            st.write(f"**Check-in:** {visitor.check_in_time.strftime('%Y-%m-%d %H:%M') if visitor.check_in_time else 'N/A'}")
+                            st.write(f"**Visitor Code:** {visitor.qr_code}")
+                        
+                        # Checkout button
+                        if st.button(f"Check Out", key=f"checkout_{visitor.id}", type="primary"):
+                            if check_out_visitor(visitor.id):
+                                st.success("✅ Checked out successfully!")
+                                st.write(f"**Check-out Time:** {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+                                st.balloons()
+                                st.rerun()
+                            else:
+                                st.error("Failed to check out. Please contact support.")
+            else:
+                st.info("No active visits found. You may have already checked out.")
+            
+            # Display visit history
+            st.markdown("---")
+            st.write("### Visit History")
+            
+            if visitors:
+                import pandas as pd
+                history_data = []
+                for v in visitors:
+                    duration = "In Progress"
+                    if v.check_out_time and v.check_in_time:
+                        delta = v.check_out_time - v.check_in_time
+                        hours = delta.total_seconds() / 3600
+                        duration = f"{hours:.1f} hours"
+                    
+                    history_data.append({
+                        "Check-in": v.check_in_time.strftime('%Y-%m-%d %H:%M') if v.check_in_time else 'N/A',
+                        "Check-out": v.check_out_time.strftime('%Y-%m-%d %H:%M') if v.check_out_time else 'In Progress',
+                        "Duration": duration,
+                        "Farm": v.farm.name if v.farm else 'N/A',
+                        "Purpose": v.purpose[:40] + "..." if v.purpose and len(v.purpose) > 40 else v.purpose,
+                        "Status": "Completed" if v.check_out_time else "Active"
+                    })
+                
+                df = pd.DataFrame(history_data)
+                st.dataframe(df, use_container_width=True)
+            else:
+                st.info("No visit history found.")
+        elif search_value and not visitors:
+            st.warning("No visits found with the provided information. Please check and try again.")
     
     finally:
         db.close()

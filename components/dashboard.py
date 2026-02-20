@@ -9,77 +9,37 @@ from utils import get_dashboard_metrics, display_alerts_sidebar, get_risk_color
 from components.visualization import render_3d_farm
 from translations import get_text
 from ai_engine import risk_predictor
+from components.role_dashboards import (
+    render_admin_dashboard,
+    render_manager_dashboard,
+    render_worker_dashboard,
+    render_vet_dashboard,
+    render_auditor_dashboard,
+    render_visitor_dashboard,
+    render_default_dashboard
+)
 
 def render_dashboard():
-    """Render main dashboard"""
+    """Render main dashboard - routes to role-specific dashboards"""
     st.title(get_text("dashboard"))
     
-    # Display alerts in sidebar
-    display_alerts_sidebar()
+    user_role = st.session_state.role
     
-    # Get metrics
-    metrics = get_dashboard_metrics()
-    
-    # Key metrics row
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric(
-            label=get_text("total_barns"),
-            value=metrics["total_barns"]
-        )
-    
-    with col2:
-        st.metric(
-            label=get_text("high_risk_barns"),
-            value=metrics["high_risk_barns"],
-            delta=f"{metrics['high_risk_barns']}/{metrics['total_barns']}"
-        )
-    
-    with col3:
-        st.metric(
-            label=get_text("total_checklists"),
-            value=metrics["total_checklists"]
-        )
-    
-    with col4:
-        st.metric(
-            label=get_text("unresolved_incidents"),
-            value=metrics["unresolved_incidents"]
-        )
-    
-    # Main content area
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.subheader(get_text("farm_visualization"))
-        render_3d_farm()
-    
-    with col2:
-        st.subheader(get_text("recent_activities"))
-        render_recent_activities()
-    
-    # Charts row
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader(get_text("risk_distribution"))
-        render_risk_distribution_chart()
-    
-    with col2:
-        st.subheader(get_text("checklist_trends"))
-        render_checklist_trends()
-    
-    # Update risks button (for admins/managers)
-    if st.session_state.role in ["admin", "manager"]:
-        if st.button(get_text("update_ai_predictions")):
-            with st.spinner(get_text("updating_predictions")):
-                success = risk_predictor.update_barn_risks()
-                if success:
-                    st.success(get_text("predictions_updated"))
-                    st.rerun()
-                else:
-                    st.error(get_text("predictions_error"))
+    # Route to role-specific dashboard
+    if user_role == "admin":
+        render_admin_dashboard()
+    elif user_role == "manager":
+        render_manager_dashboard()
+    elif user_role == "worker":
+        render_worker_dashboard()
+    elif user_role == "vet":
+        render_vet_dashboard()
+    elif user_role == "auditor":
+        render_auditor_dashboard()
+    elif user_role == "visitor":
+        render_visitor_dashboard()
+    else:
+        render_default_dashboard()
 
 def render_recent_activities():
     """Render recent activities panel filtered by assigned farms"""
@@ -102,16 +62,18 @@ def render_recent_activities():
             st.info("No barns available in assigned farms.")
             return
         
-        # Get recent checklists filtered by accessible barns
+# Get recent checklists filtered by accessible barns (approved only)
         recent_checklists = db.query(Checklist).filter(
-            Checklist.barn_id.in_(barn_ids)
+            Checklist.barn_id.in_(barn_ids),
+            Checklist.approved == True
         ).order_by(
             Checklist.submitted_at.desc()
         ).limit(5).all()
         
-        # Get recent incidents filtered by accessible barns
+        # Get recent incidents filtered by accessible barns (approved only)
         recent_incidents = db.query(Incident).filter(
-            Incident.barn_id.in_(barn_ids)
+            Incident.barn_id.in_(barn_ids),
+            Incident.approved == True
         ).order_by(
             Incident.reported_at.desc()
         ).limit(3).all()
@@ -193,11 +155,12 @@ def render_checklist_trends():
             st.info("No barns available.")
             return
         
-        # Get checklists from last 30 days filtered by accessible barns
+# Get checklists from last 30 days filtered by accessible barns (approved only)
         start_date = datetime.utcnow() - timedelta(days=30)
         checklists = db.query(Checklist).filter(
             Checklist.submitted_at >= start_date,
-            Checklist.barn_id.in_(barn_ids)
+            Checklist.barn_id.in_(barn_ids),
+            Checklist.approved == True
         ).all()
         
         # Group by date

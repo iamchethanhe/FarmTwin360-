@@ -69,8 +69,14 @@ class Checklist(Base):
     photo_path = Column(String(500))
     submitted_at = Column(DateTime, default=datetime.utcnow)
     
+    # Manager approval workflow
+    approved = Column(Boolean, default=False)
+    approved_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    
     barn = relationship("Barn")
-    user = relationship("User")
+    user = relationship("User", foreign_keys=[user_id])
+    approved_by_user = relationship("User", foreign_keys=[approved_by])
 
 class Incident(Base):
     __tablename__ = "incidents"
@@ -86,8 +92,14 @@ class Incident(Base):
     resolved = Column(Boolean, default=False)
     reported_at = Column(DateTime, default=datetime.utcnow)
     
+    # Manager approval workflow
+    approved = Column(Boolean, default=False)
+    approved_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    approved_at = Column(DateTime, nullable=True)
+    
     barn = relationship("Barn")
-    user = relationship("User")
+    user = relationship("User", foreign_keys=[user_id])
+    approved_by_user = relationship("User", foreign_keys=[approved_by])
 
 class Visitor(Base):
     __tablename__ = "visitors"

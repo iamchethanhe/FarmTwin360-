@@ -126,7 +126,8 @@ def render_risk_analysis(start_date, end_date):
         
         checklists = db.query(Checklist).filter(
             Checklist.submitted_at >= start_date,
-            Checklist.submitted_at <= end_date
+            Checklist.submitted_at <= end_date,
+            Checklist.approved == True
         ).all()
         
         if checklists:
@@ -187,7 +188,8 @@ def render_mortality_trends(start_date, end_date):
     try:
         checklists = db.query(Checklist).filter(
             Checklist.submitted_at >= start_date,
-            Checklist.submitted_at <= end_date
+            Checklist.submitted_at <= end_date,
+            Checklist.approved == True
         ).all()
         
         if checklists:
@@ -255,7 +257,8 @@ def render_hygiene_analysis(start_date, end_date):
     try:
         checklists = db.query(Checklist).filter(
             Checklist.submitted_at >= start_date,
-            Checklist.submitted_at <= end_date
+            Checklist.submitted_at <= end_date,
+            Checklist.approved == True
         ).all()
         
         if checklists:
@@ -370,7 +373,8 @@ def render_incident_analysis(start_date, end_date):
     try:
         incidents = db.query(Incident).filter(
             Incident.reported_at >= start_date,
-            Incident.reported_at <= end_date
+            Incident.reported_at <= end_date,
+            Incident.approved == True
         ).all()
         
         if incidents:
@@ -473,7 +477,8 @@ def render_compliance_report(start_date, end_date):
             checklists = db.query(Checklist).filter(
                 Checklist.barn_id == barn.id,
                 Checklist.submitted_at >= start_date,
-                Checklist.submitted_at <= end_date
+                Checklist.submitted_at <= end_date,
+                Checklist.approved == True
             ).count()
             
             # Expected checklists (1 per day)
